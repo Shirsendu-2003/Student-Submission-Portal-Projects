@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../api";
 
 export default function StudentForm() {
   const navigate = useNavigate();
@@ -18,18 +19,20 @@ export default function StudentForm() {
   };
 
   const [student, setStudent] = useState(initialState);
-  const [loading, setLoading] = useState(false); // ✅ Track submit state
+  const [loading, setLoading] = useState(false);
 
   // Capture ?src=facebook / whatsapp / instagram / youtube
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const src = params.get("src") || "direct";
-    setStudent((prev) => ({ ...prev, source: src }));
+    setStudent((prev) => ({ ...prev, source: src.toLowerCase() }));
   }, []);
 
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // Course selection
     if (["first", "second", "third", "fourth"].includes(name)) {
       setStudent((prev) => ({
         ...prev,
@@ -38,42 +41,48 @@ export default function StudentForm() {
           [name]: value,
         },
       }));
-    } else {
-      setStudent((prev) => ({ ...prev, [name]: value }));
+      return;
     }
+
+    // Normal fields
+    setStudent((prev) => ({
+      ...prev,
+      [name]:
+        name === "name"
+          ? value.toUpperCase()
+          : name === "email"
+          ? value.toLowerCase()
+          : value,
+    }));
   };
 
   // Reset form
-  const handleReset = () => {
-    setStudent(initialState);
-  };
+  const handleReset = () => setStudent(initialState);
 
   // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true); // ✅ Start loading
+
+    // Prevent multiple clicks
+    if (loading) return;
+
+    setLoading(true);
 
     try {
-      const response = await fetch("https://student-submission-projects-3.onrender.com/api/students", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(student),
-      });
+      const response = await api.post("/students", student);
 
-      if (response.ok) {
-        alert(`Student data submitted! Source: ${student.source}`);
+      if (response.status === 200 || response.status === 201) {
+        alert(`Student data submitted successfully! Source: ${student.source}`);
         setStudent(initialState);
         navigate("/verify-email");
       } else {
         alert("Failed to submit student data.");
       }
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Server error occurred.");
+    } catch (err) {
+      console.error("Submission Error:", err);
+      alert("Server error occurred. Please try again.");
     } finally {
-      setLoading(false); // ✅ Stop loading
+      setLoading(false);
     }
   };
 
@@ -130,11 +139,14 @@ export default function StudentForm() {
     "Electrical Engineering",
   ];
 
+  const selectedCourses = Object.values(student.courseChoices);
+
   return (
     <div style={styles.container}>
       <h2 style={{ textAlign: "center", color: "#004080" }}>
         Student Course Preferences
       </h2>
+
       <form onSubmit={handleSubmit}>
         {/* Name */}
         <label style={styles.label}>Name:</label>
@@ -144,7 +156,7 @@ export default function StudentForm() {
           value={student.name}
           onChange={handleChange}
           required
-          style={{ ...styles.input, textTransform: "uppercase" }}
+          style={styles.input}
         />
 
         {/* Phone */}
@@ -175,7 +187,6 @@ export default function StudentForm() {
               ...styles.input,
               borderTopLeftRadius: 0,
               borderBottomLeftRadius: 0,
-              marginBottom: "15px",
             }}
           />
         </div>
@@ -188,25 +199,21 @@ export default function StudentForm() {
           value={student.email}
           onChange={handleChange}
           required
-          style={{ ...styles.input, textTransform: "lowercase" }}
+          style={styles.input}
         />
 
-        {/* Course Selections with unique filtering */}
+        {/* Course Choices */}
         {["first", "second", "third", "fourth"].map((choice) => {
-          // find all chosen courses
-          const selectedCourses = Object.values(student.courseChoices);
-
-          // filter available options for this dropdown
-          const availableOptions = courseOptions.filter(
-            (course) =>
-              !selectedCourses.includes(course) ||
-              student.courseChoices[choice] === course
+          const available = courseOptions.filter(
+            (c) =>
+              !selectedCourses.includes(c) ||
+              student.courseChoices[choice] === c
           );
 
           return (
             <div key={choice}>
               <label style={styles.label}>
-                {`${choice.charAt(0).toUpperCase() + choice.slice(1)} Choice`}
+                {choice.charAt(0).toUpperCase() + choice.slice(1)} Choice
               </label>
               <select
                 name={choice}
@@ -216,7 +223,7 @@ export default function StudentForm() {
                 style={styles.select}
               >
                 <option value="">-- Choose a Course --</option>
-                {availableOptions.map((course) => (
+                {available.map((course) => (
                   <option key={course} value={course}>
                     {course}
                   </option>
@@ -228,18 +235,14 @@ export default function StudentForm() {
 
         {/* Buttons */}
         <div style={{ textAlign: "center", marginTop: "20px" }}>
-          <button
-            type="submit"
-            style={styles.button}
-            disabled={loading} // ✅ disable during submit
-          >
+          <button type="submit" style={styles.button} disabled={loading}>
             {loading ? "Submitting..." : "Submit"}
           </button>
           <button
             type="button"
             style={{ ...styles.button, ...styles.resetButton }}
             onClick={handleReset}
-            disabled={loading} // ✅ prevent reset while submitting
+            disabled={loading}
           >
             Reset
           </button>
