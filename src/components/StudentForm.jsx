@@ -54,7 +54,7 @@ export default function StudentForm() {
     setLoading(true); // ✅ Start loading
 
     try {
-      const response = await fetch("https://student-submission-projects-3.onrender.com/api/students", {
+      const response = await fetch("https://student-submission-projects-4.onrender.com/api/students", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
